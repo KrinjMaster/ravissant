@@ -1,0 +1,110 @@
+use crate::constants::{
+    BitBoard, BB_A_FILE, BB_B_FILE, BB_G_FILE, BB_H_FILE, BOARD_SQUARES, KING_MOVES,
+    PAWN_ATTACK_SQUARES,
+};
+
+// rewrite whole fucking pawn move generation
+
+pub fn generate_pawn_moves(
+    pawns: Vec<(u32, u32)>,
+    bb_friendly_pieces: BitBoard,
+    bb_enemy_pieces: BitBoard,
+    bb_en_passant: BitBoard,
+) -> Vec<BitBoard> {
+    let mut bb_moves_vec: Vec<BitBoard> = vec![];
+
+    let bb_fullboard = bb_friendly_pieces | bb_enemy_pieces;
+
+    for pawn in pawns.iter() {
+        let mut bb_pawn_moves: BitBoard = 0;
+
+        let attack_squares = PAWN_ATTACK_SQUARES[pawn.0 as usize][pawn.1 as usize];
+
+        // en passant
+        if pawn.0 == 0 {
+            if bb_enemy_pieces | (bb_en_passant << 8) == bb_enemy_pieces
+                && bb_en_passant | attack_squares == attack_squares
+            {
+                // black pawn can get passanted
+                bb_pawn_moves |= bb_en_passant;
+            }
+        } else {
+            if bb_enemy_pieces | (bb_en_passant >> 8) == bb_enemy_pieces
+                && bb_en_passant | attack_squares == attack_squares
+            {
+                // white pawn can get passanted
+                bb_pawn_moves |= bb_en_passant;
+            }
+        }
+
+        // forward moves generation
+        // if pawn is white
+        if pawn.0 == 0 {
+            if (BOARD_SQUARES[pawn.1 as usize] >> 8) | bb_fullboard != bb_fullboard {
+                bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] >> 8;
+            }
+            if pawn.1 >= 48 && pawn.1 <= 55 {
+                if (BOARD_SQUARES[pawn.1 as usize] >> 16) | bb_fullboard != bb_fullboard {
+                    bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] >> 16;
+                }
+            }
+        } else {
+            // black pawn
+            if (BOARD_SQUARES[pawn.1 as usize] << 8) | bb_fullboard != bb_fullboard {
+                bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] << 8;
+            }
+
+            // if pawn is on 2th rank
+            if pawn.1 >= 8 && pawn.1 <= 15 {
+                if (BOARD_SQUARES[pawn.1 as usize] << 16) | bb_fullboard != bb_fullboard {
+                    bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] << 16;
+                }
+            }
+        }
+
+        bb_moves_vec.push(bb_pawn_moves);
+    }
+
+    bb_moves_vec
+}
+
+pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_enemy_pieces: BitBoard) -> BitBoard {
+    let bb_moves: BitBoard = KING_MOVES[bb_king[0].1 as usize];
+
+    bb_moves ^ bb_enemy_pieces
+}
+
+pub fn generate_knight_moves() {
+    for square in 0..64 {
+        let mut bb_moves: BitBoard = 0;
+        let BB_GH_FILES: BitBoard = BB_H_FILE & BB_G_FILE;
+        let BB_AB_FILES: BitBoard = BB_A_FILE & BB_B_FILE;
+
+        let bb_square: BitBoard = BOARD_SQUARES[square as usize];
+
+        if bb_square >> 15 & BB_A_FILE != 0 {
+            bb_moves |= bb_square >> 15;
+        }
+
+        if bb_square << 17 & BB_A_FILE != 0 {
+            bb_moves |= bb_square << 17;
+        }
+
+        if bb_square >> 17 & BB_H_FILE != 0 {
+            bb_moves |= bb_square >> 17;
+        }
+
+        if bb_square << 15 & BB_H_FILE != 0 {
+            bb_moves |= bb_square << 15;
+        }
+
+        let visualize: Vec<&str> = String::from(format!("{:b}", bb_moves)).split(" ").collect();
+        let vis_vec: Vec<&str> = visualize.chunks(8).collect();
+
+        for line in vis_vec.iter() {
+            println!("{}", line);
+        }
+
+        println!("\n\n\n");
+    }
+}

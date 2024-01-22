@@ -1,9 +1,12 @@
-use crate::constants::{BitBoard, BOARD_SQUARES, PAWN_ATTACK_SQUARES};
+use crate::constants::{BitBoard, BOARD_SQUARES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACK_SQUARES};
+
+// rewrite whole fucking pawn move generation
 
 pub fn generate_pawn_moves(
     pawns: Vec<(u32, u32)>,
     bb_friendly_pieces: BitBoard,
     bb_enemy_pieces: BitBoard,
+    bb_en_passant: BitBoard,
 ) -> Vec<BitBoard> {
     let mut bb_moves_vec: Vec<BitBoard> = vec![];
 
@@ -14,56 +17,74 @@ pub fn generate_pawn_moves(
 
         let attack_squares = PAWN_ATTACK_SQUARES[pawn.0 as usize][pawn.1 as usize];
 
-        // pseudo legal pawn forward moves
+        // if pawn can attack
+        bb_pawn_moves |= (attack_squares ^ bb_friendly_pieces) & (attack_squares & bb_enemy_pieces);
+
+        //  moves generation forward and en passant
         if pawn.0 == 0 {
-            // if pawn can move 1 square forward
-            if bb_fullboard | BOARD_SQUARES[pawn.1 as usize] >> 8 != bb_fullboard {
+            // white pawn
+            if (BOARD_SQUARES[pawn.1 as usize] >> 8) | bb_fullboard != bb_fullboard {
                 bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] >> 8;
             }
-            // if pawn can move 2 squares forward
-            if bb_fullboard | BOARD_SQUARES[pawn.1 as usize] >> 16 != bb_fullboard {
-                bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] >> 16;
+
+            // if pawn is on 2nd rank
+            if pawn.1 >= 48 && pawn.1 <= 55 {
+                if (BOARD_SQUARES[pawn.1 as usize] >> 16) | bb_fullboard != bb_fullboard {
+                    bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] >> 16;
+                }
+            }
+
+            // en passant
+            if bb_enemy_pieces | (bb_en_passant << 8) == bb_enemy_pieces
+                && bb_en_passant | attack_squares == attack_squares
+            {
+                // black pawn can get passanted
+                bb_pawn_moves |= bb_en_passant;
             }
         } else {
-            // if pawn can move 1 square forward
-            if bb_fullboard | BOARD_SQUARES[pawn.1 as usize] << 8 != bb_fullboard {
+            // black pawn
+            if (BOARD_SQUARES[pawn.1 as usize] << 8) | bb_fullboard != bb_fullboard {
                 bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] << 8;
             }
-            // if pawn can move 2 squares forward
-            if bb_fullboard | BOARD_SQUARES[pawn.1 as usize] << 16 != bb_fullboard {
-                bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] << 16;
-            }
-        }
 
-        // pseudo legal pawn attacks
-        if bb_fullboard | attack_squares != bb_fullboard
-            || bb_friendly_pieces | attack_squares == bb_friendly_pieces
-        {
-            // all attack squares are empty or
-            // all attack squares are occupied by friendly pieces
-        } else if bb_enemy_pieces | attack_squares == bb_enemy_pieces {
-            // all attack squares are occupied by enemy pieces
-            bb_pawn_moves |= attack_squares;
-        } else {
-            let mut attack_squares_copy = attack_squares.clone();
-
-            while attack_squares_copy != 0 {
-                let attack_square_index = attack_squares_copy.trailing_zeros();
-
-                // if picked attacked square empty or not
-                if bb_fullboard | BOARD_SQUARES[attack_square_index as usize] == bb_fullboard {
-                    if bb_friendly_pieces | BOARD_SQUARES[attack_square_index as usize]
-                        != bb_friendly_pieces
-                    {
-                        bb_pawn_moves |= BOARD_SQUARES[attack_square_index as usize];
-                    }
+            // if pawn is on 7th rank
+            if pawn.1 >= 8 && pawn.1 <= 15 {
+                if (BOARD_SQUARES[pawn.1 as usize] << 16) | bb_fullboard != bb_fullboard {
+                    bb_pawn_moves |= BOARD_SQUARES[pawn.1 as usize] << 16;
                 }
+            }
 
-                attack_squares_copy ^= BOARD_SQUARES[attack_square_index as usize];
+            // en passant
+            if bb_enemy_pieces | (bb_en_passant >> 8) == bb_enemy_pieces
+                && bb_en_passant | attack_squares == attack_squares
+            {
+                // white pawn can get passanted
+                bb_pawn_moves |= bb_en_passant;
             }
         }
 
         bb_moves_vec.push(bb_pawn_moves);
+    }
+
+    bb_moves_vec
+}
+
+pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_friendly_pieces: BitBoard) -> BitBoard {
+    let bb_moves: BitBoard = KING_MOVES[bb_king[0].1 as usize];
+
+    (bb_moves ^ bb_friendly_pieces) & bb_moves
+}
+
+pub fn generate_knight_moves(
+    knights: Vec<(u32, u32)>,
+    bb_friendly_pieces: BitBoard,
+) -> Vec<BitBoard> {
+    let mut bb_moves_vec: Vec<BitBoard> = vec![];
+
+    for knight in knights.iter() {
+        let bb_moves: BitBoard = KNIGHT_MOVES[knight.1 as usize];
+
+        bb_moves_vec.push((bb_moves ^ bb_friendly_pieces) & bb_moves);
     }
 
     bb_moves_vec

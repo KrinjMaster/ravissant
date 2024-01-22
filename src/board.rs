@@ -53,26 +53,11 @@ impl BoardState {
                     col += char.to_digit(10).unwrap();
                 } else {
                     match char {
-                        'P' => {
-                            bb_white_pawns =
-                                bb_white_pawns | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'N' => {
-                            bb_white_knights =
-                                bb_white_knights | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'B' => {
-                            bb_white_bishops =
-                                bb_white_bishops | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'R' => {
-                            bb_white_rooks =
-                                bb_white_rooks | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'Q' => {
-                            bb_white_queens =
-                                bb_white_queens | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
+                        'P' => bb_white_pawns |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'N' => bb_white_knights |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'B' => bb_white_bishops |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'R' => bb_white_rooks |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'Q' => bb_white_queens |= BOARD_SQUARES[8 * row as usize + col as usize],
                         'K' => {
                             if white_king_count > 1 {
                                 return Err(
@@ -80,30 +65,14 @@ impl BoardState {
                                 );
                             }
 
-                            bb_white_king =
-                                bb_white_king | BOARD_SQUARES[8 * row as usize + col as usize];
+                            bb_white_king |= BOARD_SQUARES[8 * row as usize + col as usize];
                             white_king_count += 1;
                         }
-                        'p' => {
-                            bb_black_pawns =
-                                bb_black_pawns | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'n' => {
-                            bb_black_knights =
-                                bb_black_knights | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'b' => {
-                            bb_black_bishops =
-                                bb_black_bishops | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'r' => {
-                            bb_black_rooks =
-                                bb_black_rooks | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
-                        'q' => {
-                            bb_black_queens =
-                                bb_black_queens | BOARD_SQUARES[8 * row as usize + col as usize]
-                        }
+                        'p' => bb_black_pawns |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'n' => bb_black_knights |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'b' => bb_black_bishops |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'r' => bb_black_rooks |= BOARD_SQUARES[8 * row as usize + col as usize],
+                        'q' => bb_black_queens |= BOARD_SQUARES[8 * row as usize + col as usize],
                         'k' => {
                             if black_king_count > 1 {
                                 return Err(
@@ -111,8 +80,7 @@ impl BoardState {
                                 );
                             }
 
-                            bb_black_king =
-                                bb_black_king | BOARD_SQUARES[8 * row as usize + col as usize];
+                            bb_black_king |= BOARD_SQUARES[8 * row as usize + col as usize];
 
                             black_king_count += 1;
                         }
@@ -185,7 +153,7 @@ impl BoardState {
         }
 
         if en_passant.len() == 2 {
-            bb_en_passant = bb_en_passant | BOARD_SQUARES[63 - (en_passant[1] * 8 + en_passant[0])];
+            bb_en_passant |= BOARD_SQUARES[63 - (en_passant[1] * 8 + (7 - en_passant[0]))];
         }
 
         // halfmove parsing
