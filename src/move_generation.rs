@@ -1,19 +1,18 @@
-use crate::constants::{BitBoard, BOARD_SQUARES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACK_SQUARES};
-
-// rewrite whole fucking pawn move generation
+use crate::board::Bitboard;
+use crate::constants::{BOARD_SQUARES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACK_SQUARES};
 
 pub fn generate_pawn_moves(
     pawns: Vec<(u32, u32)>,
-    bb_friendly_pieces: BitBoard,
-    bb_enemy_pieces: BitBoard,
-    bb_en_passant: BitBoard,
-) -> Vec<BitBoard> {
-    let mut bb_moves_vec: Vec<BitBoard> = vec![];
+    bb_friendly_pieces: Bitboard,
+    bb_enemy_pieces: Bitboard,
+    bb_en_passant: Bitboard,
+) -> Vec<Bitboard> {
+    let mut bb_moves_vec: Vec<Bitboard> = vec![];
 
     let bb_fullboard = bb_friendly_pieces | bb_enemy_pieces;
 
     for pawn in pawns.iter() {
-        let mut bb_pawn_moves: BitBoard = 0;
+        let mut bb_pawn_moves: Bitboard = 0;
 
         let attack_squares = PAWN_ATTACK_SQUARES[pawn.0 as usize][pawn.1 as usize];
 
@@ -69,23 +68,25 @@ pub fn generate_pawn_moves(
     bb_moves_vec
 }
 
-pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_friendly_pieces: BitBoard) -> BitBoard {
-    let bb_moves: BitBoard = KING_MOVES[bb_king[0].1 as usize];
+pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_friendly_pieces: Bitboard) -> Bitboard {
+    let bb_moves: Bitboard = KING_MOVES[bb_king[0].1 as usize];
 
     (bb_moves ^ bb_friendly_pieces) & bb_moves
 }
 
 pub fn generate_knight_moves(
     knights: Vec<(u32, u32)>,
-    bb_friendly_pieces: BitBoard,
-) -> Vec<BitBoard> {
-    let mut bb_moves_vec: Vec<BitBoard> = vec![];
+    bb_friendly_pieces: Bitboard,
+) -> Vec<Bitboard> {
+    let mut bb_moves_vec: Vec<Bitboard> = vec![];
 
     for knight in knights.iter() {
-        let bb_moves: BitBoard = KNIGHT_MOVES[knight.1 as usize];
+        let bb_moves: Bitboard = KNIGHT_MOVES[knight.1 as usize];
 
         bb_moves_vec.push((bb_moves ^ bb_friendly_pieces) & bb_moves);
     }
 
     bb_moves_vec
 }
+
+pub fn generate_magic_numbers() {}

@@ -1,18 +1,85 @@
-use crate::constants::{BitBoard, BOARD_SQUARES};
+use crate::constants::BOARD_SQUARES;
+
+// board when encoded looks something like this when printed
+// 1 . . . . . . . .
+// 2 . . . . . . . .
+// 3 . . . . . . . .
+// 4 . . . . . . . .
+// 5 . . . . . . . .
+// 6 . . . . . . . .
+// 7 . . . . . . . .
+// 8 . . . . . . . .
+//   h g f e d c b a
+
+pub fn print_bitboard(bb: Bitboard) {
+    let formatted_bb: String = format!("{:064b}", bb);
+    let form_bb: Vec<&str> = formatted_bb
+        .split("")
+        .filter(|&str| !str.is_empty())
+        .collect();
+
+    for rank in 0..8 {
+        let rank: String = match rank {
+            0 => "h  ".to_string(),
+            1 => "g  ".to_string(),
+            2 => "f  ".to_string(),
+            3 => "e  ".to_string(),
+            4 => "d  ".to_string(),
+            5 => "c  ".to_string(),
+            6 => "b  ".to_string(),
+            7 => "a  ".to_string(),
+            _ => continue,
+        } + &form_bb[(7 - rank) * 8..(7 - rank) * 8 + 8]
+            .join(" ")
+            .chars()
+            .rev()
+            .collect::<String>();
+
+        println!("{}", rank);
+    }
+    println!("\n   1 2 3 4 5 6 7 8\n");
+    println!("biboard is: {}", bb);
+}
+
+pub type Bitboard = u64;
+
+#[derive(Debug)]
+pub enum Color {
+    White = 0,
+    Black = 1,
+}
+
+#[derive(Debug)]
+pub enum Piece {
+    Pawn = 0,
+    Knight = 1,
+    Bishop = 2,
+    Rook = 3,
+    Queen = 4,
+    King = 5,
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct BoardState {
-    pub bb_pieces: [[BitBoard; 6]; 2],
-    pub bb_colors: [BitBoard; 2],
-    pub bb_fullboard: BitBoard,
-    pub bb_to_move: BitBoard,
-    pub bb_castling_rigths: [[BitBoard; 2]; 2],
-    pub bb_en_passant: BitBoard,
+    pub bb_pieces: [[Bitboard; 6]; 2],
+    pub bb_colors: [Bitboard; 2],
+    pub bb_fullboard: Bitboard,
+    pub bb_to_move: Bitboard,
+    pub bb_castling_rigths: [[Bitboard; 2]; 2],
+    pub bb_en_passant: Bitboard,
     pub halfmove: u32,
     pub fullmove: u32,
 }
 
 impl BoardState {
+    pub fn get_piece_bb(&self, color: Color, piece: Piece) -> Bitboard {
+        self.bb_pieces[color as usize][piece as usize]
+    }
+
+    pub fn get_color_bb(&self, color: Color) -> Bitboard {
+        self.bb_colors[color as usize]
+    }
+
     pub fn from_fen(fen_string: &str) -> Result<BoardState, &str> {
         let fen: Vec<&str> = fen_string.split_whitespace().collect();
 
@@ -21,18 +88,18 @@ impl BoardState {
         }
 
         // pieces position parsing
-        let mut bb_white_pawns: BitBoard = 0;
-        let mut bb_white_knights: BitBoard = 0;
-        let mut bb_white_bishops: BitBoard = 0;
-        let mut bb_white_rooks: BitBoard = 0;
-        let mut bb_white_queens: BitBoard = 0;
-        let mut bb_white_king: BitBoard = 0;
-        let mut bb_black_pawns: BitBoard = 0;
-        let mut bb_black_knights: BitBoard = 0;
-        let mut bb_black_bishops: BitBoard = 0;
-        let mut bb_black_rooks: BitBoard = 0;
-        let mut bb_black_queens: BitBoard = 0;
-        let mut bb_black_king: BitBoard = 0;
+        let mut bb_white_pawns: Bitboard = 0;
+        let mut bb_white_knights: Bitboard = 0;
+        let mut bb_white_bishops: Bitboard = 0;
+        let mut bb_white_rooks: Bitboard = 0;
+        let mut bb_white_queens: Bitboard = 0;
+        let mut bb_white_king: Bitboard = 0;
+        let mut bb_black_pawns: Bitboard = 0;
+        let mut bb_black_knights: Bitboard = 0;
+        let mut bb_black_bishops: Bitboard = 0;
+        let mut bb_black_rooks: Bitboard = 0;
+        let mut bb_black_queens: Bitboard = 0;
+        let mut bb_black_king: Bitboard = 0;
 
         let fen_pieces: Vec<&str> = fen[0].split("/").collect();
 
@@ -93,7 +160,7 @@ impl BoardState {
 
         // parsing move to move
         let to_move_fen: &str = fen[1];
-        let mut bb_to_move: BitBoard = 0;
+        let mut bb_to_move: Bitboard = 0;
 
         match to_move_fen {
             "w" => bb_to_move = 0,
@@ -104,10 +171,10 @@ impl BoardState {
         // castling rights parsing
         let castling_rigths_fen: &str = fen[2];
 
-        let mut bb_castling_white_kingside: BitBoard = 0;
-        let mut bb_castling_white_queenside: BitBoard = 0;
-        let mut bb_castling_black_kingside: BitBoard = 0;
-        let mut bb_castling_black_queenside: BitBoard = 0;
+        let mut bb_castling_white_kingside: Bitboard = 0;
+        let mut bb_castling_white_queenside: Bitboard = 0;
+        let mut bb_castling_black_kingside: Bitboard = 0;
+        let mut bb_castling_black_queenside: Bitboard = 0;
 
         for char in castling_rigths_fen.chars() {
             match char {
@@ -126,7 +193,7 @@ impl BoardState {
 
         // en passant square parsing
         let mut en_passant: Vec<usize> = vec![];
-        let mut bb_en_passant: BitBoard = 0;
+        let mut bb_en_passant: Bitboard = 0;
 
         if fen[3].len() > 2 {
             return Err("Incorrect length of en passant square in fen string!");
