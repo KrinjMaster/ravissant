@@ -1,6 +1,6 @@
 use crate::constants::BOARD_SQUARES;
 
-// board when encoded looks something like this when printed
+// board when encoded looks something like this
 // 1 . . . . . . . .
 // 2 . . . . . . . .
 // 3 . . . . . . . .
@@ -11,34 +11,12 @@ use crate::constants::BOARD_SQUARES;
 // 8 . . . . . . . .
 //   h g f e d c b a
 
-pub fn print_bitboard(bb: Bitboard) {
-    let formatted_bb: String = format!("{:064b}", bb);
-    let form_bb: Vec<&str> = formatted_bb
-        .split("")
-        .filter(|&str| !str.is_empty())
-        .collect();
+pub fn count_ones(bb: Bitboard) -> u8 {
+    bb.count_ones() as u8
+}
 
-    for rank in 0..8 {
-        let rank: String = match rank {
-            0 => "h  ".to_string(),
-            1 => "g  ".to_string(),
-            2 => "f  ".to_string(),
-            3 => "e  ".to_string(),
-            4 => "d  ".to_string(),
-            5 => "c  ".to_string(),
-            6 => "b  ".to_string(),
-            7 => "a  ".to_string(),
-            _ => continue,
-        } + &form_bb[(7 - rank) * 8..(7 - rank) * 8 + 8]
-            .join(" ")
-            .chars()
-            .rev()
-            .collect::<String>();
-
-        println!("{}", rank);
-    }
-    println!("\n   1 2 3 4 5 6 7 8\n");
-    println!("biboard is: {}", bb);
+pub fn trailing_zeros(bb: Bitboard) -> u8 {
+    bb.trailing_zeros() as u8
 }
 
 pub type Bitboard = u64;

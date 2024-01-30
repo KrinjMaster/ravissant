@@ -1,4 +1,4 @@
-use crate::board::Bitboard;
+use crate::board::{trailing_zeros, Bitboard};
 use crate::constants::{BOARD_SQUARES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACK_SQUARES};
 
 pub fn generate_pawn_moves(
@@ -89,4 +89,56 @@ pub fn generate_knight_moves(
     bb_moves_vec
 }
 
-pub fn generate_magic_numbers() {}
+pub fn generate_rook_attacks_on_the_fly(square: u8, blockers: Bitboard) -> Bitboard {
+    let mut attacks: Bitboard = 0;
+
+    let rank: u8 = square / 8;
+    let file: u8 = square % 8;
+
+    for r in (0..rank).rev() {
+        attacks |= BOARD_SQUARES[r as usize * 8 + file as usize];
+        if BOARD_SQUARES[r as usize * 8 + file as usize] & blockers != 0 {
+            break;
+        }
+    }
+    for r in rank + 1..8 {
+        attacks |= BOARD_SQUARES[r as usize * 8 + file as usize];
+        if BOARD_SQUARES[r as usize * 8 + file as usize] & blockers != 0 {
+            break;
+        }
+    }
+
+    for f in (0..file).rev() {
+        attacks |= BOARD_SQUARES[rank as usize * 8 + f as usize];
+        if BOARD_SQUARES[rank as usize * 8 + f as usize] & blockers != 0 {
+            break;
+        }
+    }
+
+    for f in file + 1..8 {
+        attacks |= BOARD_SQUARES[rank as usize * 8 + f as usize];
+
+        if BOARD_SQUARES[rank as usize * 8 + f as usize] & blockers != 0 {
+            break;
+        }
+    }
+
+    attacks
+}
+
+pub fn set_occupancies(index: u32, bits_in_mask: u8, attack_mask: Bitboard) -> Bitboard {
+    let mut attack_map: Bitboard = attack_mask.clone();
+    let mut occupancy: Bitboard = 0;
+
+    for count in 0..bits_in_mask {
+        let square: Bitboard = BOARD_SQUARES[trailing_zeros(attack_map) as usize];
+
+        attack_map ^= square;
+
+        if index as u64 & (1u64 << count) != 0 {
+            occupancy |= square;
+        }
+    }
+
+    occupancy
+}
