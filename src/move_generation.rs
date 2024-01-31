@@ -1,5 +1,9 @@
 use crate::board::{trailing_zeros, Bitboard};
-use crate::constants::{BOARD_SQUARES, KING_MOVES, KNIGHT_MOVES, PAWN_ATTACK_SQUARES};
+use crate::constants::{
+    BB_1_RANK, BB_8_RANK, BB_A_FILE, BB_H_FILE, BOARD_SQUARES, KING_ATTACKS, KNIGHT_ATTACKS,
+    PAWN_ATTACKS,
+};
+use crate::utils::print_bitboard;
 
 pub fn generate_pawn_moves(
     pawns: Vec<(u32, u32)>,
@@ -14,7 +18,7 @@ pub fn generate_pawn_moves(
     for pawn in pawns.iter() {
         let mut bb_pawn_moves: Bitboard = 0;
 
-        let attack_squares = PAWN_ATTACK_SQUARES[pawn.0 as usize][pawn.1 as usize];
+        let attack_squares = PAWN_ATTACKS[pawn.0 as usize][pawn.1 as usize];
 
         // if pawn can attack
         bb_pawn_moves |= (attack_squares ^ bb_friendly_pieces) & (attack_squares & bb_enemy_pieces);
@@ -69,7 +73,7 @@ pub fn generate_pawn_moves(
 }
 
 pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_friendly_pieces: Bitboard) -> Bitboard {
-    let bb_moves: Bitboard = KING_MOVES[bb_king[0].1 as usize];
+    let bb_moves: Bitboard = KING_ATTACKS[bb_king[0].1 as usize];
 
     (bb_moves ^ bb_friendly_pieces) & bb_moves
 }
@@ -81,7 +85,7 @@ pub fn generate_knight_moves(
     let mut bb_moves_vec: Vec<Bitboard> = vec![];
 
     for knight in knights.iter() {
-        let bb_moves: Bitboard = KNIGHT_MOVES[knight.1 as usize];
+        let bb_moves: Bitboard = KNIGHT_ATTACKS[knight.1 as usize];
 
         bb_moves_vec.push((bb_moves ^ bb_friendly_pieces) & bb_moves);
     }
@@ -126,7 +130,7 @@ pub fn generate_rook_attacks_on_the_fly(square: u8, blockers: Bitboard) -> Bitbo
     attacks
 }
 
-pub fn set_occupancies(index: u32, bits_in_mask: u8, attack_mask: Bitboard) -> Bitboard {
+pub fn set_rook_occupancies(index: u32, bits_in_mask: u8, attack_mask: Bitboard) -> Bitboard {
     let mut attack_map: Bitboard = attack_mask.clone();
     let mut occupancy: Bitboard = 0;
 
@@ -141,4 +145,62 @@ pub fn set_occupancies(index: u32, bits_in_mask: u8, attack_mask: Bitboard) -> B
     }
 
     occupancy
+}
+
+pub fn generate_bishop_attacks() {
+    println!("pub const BISHOP_ATTACKS: [Bitboard; 64] = [");
+    for sq in 0..64 {
+        let mut attacks: Bitboard = 0;
+        let square = BB_A_FILE | BB_H_FILE | BB_1_RANK | BB_8_RANK;
+
+        for r in 0..8 {
+            if sq + (9 * r) < 64
+                && sq + (9 * r) >= 0
+                && BOARD_SQUARES[(sq + (9 * r)) as usize] & BB_H_FILE == 0
+            {
+                attacks |= BOARD_SQUARES[(sq + (9 * r)) as usize];
+            } else {
+                break;
+            }
+        }
+
+        for r in 0..8 {
+            if sq + (7 * r) < 64
+                && sq + (7 * r) >= 0
+                && BOARD_SQUARES[(sq + (7 * r)) as usize] & BB_A_FILE == 0
+            {
+                attacks |= BOARD_SQUARES[(sq + (7 * r)) as usize];
+            } else {
+                break;
+            }
+        }
+
+        for r in 0..8 {
+            if sq + (-9 * r) < 64
+                && sq + (-9 * r) >= 0
+                && BOARD_SQUARES[(sq + (-9 * r)) as usize] & BB_A_FILE == 0
+            {
+                attacks |= BOARD_SQUARES[(sq + (-9 * r)) as usize];
+            } else {
+                break;
+            }
+        }
+
+        for r in 0..8 {
+            if sq + (-7 * r) < 64
+                && sq + (-7 * r) >= 0
+                && BOARD_SQUARES[(sq + (-7 * r)) as usize] & BB_H_FILE == 0
+            {
+                attacks |= BOARD_SQUARES[(sq + (-7 * r)) as usize];
+            } else {
+                break;
+            }
+        }
+
+        println!(
+            "0x{:016X},",
+            ((attacks | square) ^ square) & !BOARD_SQUARES[sq as usize]
+        );
+    }
+    println!("];");
 }

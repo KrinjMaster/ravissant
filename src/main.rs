@@ -8,9 +8,12 @@ mod piece_parsing;
 mod utils;
 
 use board::{BoardState, Color, Piece};
-use constants::DEFAULT_FEN_STRING;
-use move_generation::{generate_king_moves, generate_knight_moves, generate_pawn_moves};
+use constants::{BISHOP_ATTACKS, DEFAULT_FEN_STRING};
+use move_generation::{
+    generate_bishop_attacks, generate_king_moves, generate_knight_moves, generate_pawn_moves,
+};
 use piece_parsing::parse_bitboards;
+use utils::print_bitboard;
 
 fn main() {
     let board = BoardState::from_fen(DEFAULT_FEN_STRING).unwrap_or_else(|err| {
@@ -43,4 +46,7 @@ fn main() {
     // let occucancies = set_occupancies(4095, count_ones(magic_entry.mask), magic_entry.mask);
     //
     // print_bitboard(get_rook_move(magic_entry, occucancies));
+    for board in BISHOP_ATTACKS.iter() {
+        print_bitboard(*board);
+    }
 }
