@@ -1,17 +1,16 @@
-use crate::board::{trailing_zeros, Bitboard};
+use crate::board::Bitboard;
 use crate::constants::{
-    BB_1_RANK, BB_8_RANK, BB_A_FILE, BB_H_FILE, BOARD_SQUARES, KING_ATTACKS, KNIGHT_ATTACKS,
-    PAWN_ATTACKS,
+    BISHOP_MAGICS, BOARD_SQUARES, KING_ATTACKS, KNIGHT_ATTACKS, PAWN_ATTACKS, ROOK_MAGICS,
 };
-use crate::utils::print_bitboard;
+use crate::magic::{get_bishop_move, get_rook_move};
 
 pub fn generate_pawn_moves(
     pawns: Vec<(u32, u32)>,
     bb_friendly_pieces: Bitboard,
     bb_enemy_pieces: Bitboard,
     bb_en_passant: Bitboard,
-) -> Vec<Bitboard> {
-    let mut bb_moves_vec: Vec<Bitboard> = vec![];
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
     let bb_fullboard = bb_friendly_pieces | bb_enemy_pieces;
 
@@ -66,141 +65,101 @@ pub fn generate_pawn_moves(
             }
         }
 
-        bb_moves_vec.push(bb_pawn_moves);
+        bb_moves_vec.push((BOARD_SQUARES[pawn.1 as usize], bb_pawn_moves));
     }
 
     bb_moves_vec
 }
 
-pub fn generate_king_moves(bb_king: Vec<(u32, u32)>, bb_friendly_pieces: Bitboard) -> Bitboard {
-    let bb_moves: Bitboard = KING_ATTACKS[bb_king[0].1 as usize];
+pub fn generate_king_moves(
+    kings: Vec<(u32, u32)>,
+    bb_friendly_pieces: Bitboard,
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
-    (bb_moves ^ bb_friendly_pieces) & bb_moves
+    for king in kings.iter() {
+        let bb_moves: Bitboard = KING_ATTACKS[king.1 as usize];
+
+        bb_moves_vec.push((
+            BOARD_SQUARES[king.1 as usize],
+            (bb_moves ^ bb_friendly_pieces) & bb_moves,
+        ));
+    }
+
+    bb_moves_vec
 }
 
 pub fn generate_knight_moves(
     knights: Vec<(u32, u32)>,
     bb_friendly_pieces: Bitboard,
-) -> Vec<Bitboard> {
-    let mut bb_moves_vec: Vec<Bitboard> = vec![];
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
     for knight in knights.iter() {
         let bb_moves: Bitboard = KNIGHT_ATTACKS[knight.1 as usize];
 
-        bb_moves_vec.push((bb_moves ^ bb_friendly_pieces) & bb_moves);
+        bb_moves_vec.push((
+            BOARD_SQUARES[knight.1 as usize],
+            (bb_moves ^ bb_friendly_pieces) & bb_moves,
+        ));
     }
 
     bb_moves_vec
 }
 
-pub fn generate_rook_attacks_on_the_fly(square: u8, blockers: Bitboard) -> Bitboard {
-    let mut attacks: Bitboard = 0;
+pub fn generate_rook_moves(
+    rooks: Vec<(u32, u32)>,
+    bb_friendly_pieces: Bitboard,
+    bb_fullboard: Bitboard,
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
-    let rank: u8 = square / 8;
-    let file: u8 = square % 8;
-
-    for r in (0..rank).rev() {
-        attacks |= BOARD_SQUARES[r as usize * 8 + file as usize];
-        if BOARD_SQUARES[r as usize * 8 + file as usize] & blockers != 0 {
-            break;
-        }
-    }
-    for r in rank + 1..8 {
-        attacks |= BOARD_SQUARES[r as usize * 8 + file as usize];
-        if BOARD_SQUARES[r as usize * 8 + file as usize] & blockers != 0 {
-            break;
-        }
+    for rook in rooks.iter() {
+        bb_moves_vec.push((
+            BOARD_SQUARES[rook.1 as usize],
+            get_rook_move(ROOK_MAGICS[rook.1 as usize], bb_fullboard) & !bb_friendly_pieces,
+        ));
     }
 
-    for f in (0..file).rev() {
-        attacks |= BOARD_SQUARES[rank as usize * 8 + f as usize];
-        if BOARD_SQUARES[rank as usize * 8 + f as usize] & blockers != 0 {
-            break;
-        }
-    }
-
-    for f in file + 1..8 {
-        attacks |= BOARD_SQUARES[rank as usize * 8 + f as usize];
-
-        if BOARD_SQUARES[rank as usize * 8 + f as usize] & blockers != 0 {
-            break;
-        }
-    }
-
-    attacks
+    bb_moves_vec
 }
 
-pub fn set_rook_occupancies(index: u32, bits_in_mask: u8, attack_mask: Bitboard) -> Bitboard {
-    let mut attack_map: Bitboard = attack_mask.clone();
-    let mut occupancy: Bitboard = 0;
+pub fn generate_bishop_moves(
+    bishops: Vec<(u32, u32)>,
+    bb_friendly_pieces: Bitboard,
+    bb_fullboard: Bitboard,
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
-    for count in 0..bits_in_mask {
-        let square: Bitboard = BOARD_SQUARES[trailing_zeros(attack_map) as usize];
-
-        attack_map ^= square;
-
-        if index as u64 & (1u64 << count) != 0 {
-            occupancy |= square;
-        }
+    for bishop in bishops.iter() {
+        bb_moves_vec.push((
+            BOARD_SQUARES[bishop.1 as usize],
+            get_bishop_move(BISHOP_MAGICS[bishop.1 as usize], bb_fullboard) & !bb_friendly_pieces,
+        ));
     }
 
-    occupancy
+    bb_moves_vec
 }
 
-pub fn generate_bishop_attacks() {
-    println!("pub const BISHOP_ATTACKS: [Bitboard; 64] = [");
-    for sq in 0..64 {
-        let mut attacks: Bitboard = 0;
-        let square = BB_A_FILE | BB_H_FILE | BB_1_RANK | BB_8_RANK;
+pub fn generate_quen_moves(
+    queens: Vec<(u32, u32)>,
+    bb_fullboard: Bitboard,
+    bb_friendly_pieces: Bitboard,
+) -> Vec<(Bitboard, Bitboard)> {
+    let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
 
-        for r in 0..8 {
-            if sq + (9 * r) < 64
-                && sq + (9 * r) >= 0
-                && BOARD_SQUARES[(sq + (9 * r)) as usize] & BB_H_FILE == 0
-            {
-                attacks |= BOARD_SQUARES[(sq + (9 * r)) as usize];
-            } else {
-                break;
-            }
+    let rook_moves = generate_rook_moves(queens.clone(), bb_friendly_pieces, bb_fullboard);
+    let bishop_moves = generate_bishop_moves(queens.clone(), bb_friendly_pieces, bb_fullboard);
+
+    if rook_moves.len() != 0 && bishop_moves.len() != 0 {
+        for index in 0..queens.len() {
+            // rook_moves and bishop_moves are equal in size so this loop should work just fine
+            bb_moves_vec.push((
+                rook_moves[index].0,
+                rook_moves[index].1 | bishop_moves[index].1,
+            ));
         }
-
-        for r in 0..8 {
-            if sq + (7 * r) < 64
-                && sq + (7 * r) >= 0
-                && BOARD_SQUARES[(sq + (7 * r)) as usize] & BB_A_FILE == 0
-            {
-                attacks |= BOARD_SQUARES[(sq + (7 * r)) as usize];
-            } else {
-                break;
-            }
-        }
-
-        for r in 0..8 {
-            if sq + (-9 * r) < 64
-                && sq + (-9 * r) >= 0
-                && BOARD_SQUARES[(sq + (-9 * r)) as usize] & BB_A_FILE == 0
-            {
-                attacks |= BOARD_SQUARES[(sq + (-9 * r)) as usize];
-            } else {
-                break;
-            }
-        }
-
-        for r in 0..8 {
-            if sq + (-7 * r) < 64
-                && sq + (-7 * r) >= 0
-                && BOARD_SQUARES[(sq + (-7 * r)) as usize] & BB_H_FILE == 0
-            {
-                attacks |= BOARD_SQUARES[(sq + (-7 * r)) as usize];
-            } else {
-                break;
-            }
-        }
-
-        println!(
-            "0x{:016X},",
-            ((attacks | square) ^ square) & !BOARD_SQUARES[sq as usize]
-        );
     }
-    println!("];");
+
+    bb_moves_vec
 }

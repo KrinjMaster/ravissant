@@ -2,51 +2,44 @@ use std::process::exit;
 
 mod board;
 mod constants;
+mod eval;
 mod magic;
 mod move_generation;
 mod piece_parsing;
+mod search;
 mod utils;
 
-use board::{BoardState, Color, Piece};
-use constants::{BISHOP_ATTACKS, DEFAULT_FEN_STRING};
-use move_generation::{
-    generate_bishop_attacks, generate_king_moves, generate_knight_moves, generate_pawn_moves,
-};
-use piece_parsing::parse_bitboards;
+use board::BoardState;
+use board::Color;
+use constants::DEFAULT_FEN_STRING;
+use search::negamax;
 use utils::print_bitboard;
 
+use crate::eval::evaluate;
+
 fn main() {
-    let board = BoardState::from_fen(DEFAULT_FEN_STRING).unwrap_or_else(|err| {
-        println!("{}", err);
-        exit(1);
-    });
+    let mut board =
+        BoardState::from_fen("rnbqkbnr/pppp1ppp/8/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq e6 0 1")
+            .unwrap_or_else(|err| {
+                println!("{}", err);
+                exit(1);
+            });
 
-    // generate pseudo legal moves
-    let _white_pawn_moves = generate_pawn_moves(
-        parse_bitboards(Color::White, board.get_piece_bb(Color::White, Piece::Pawn)),
-        board.get_color_bb(Color::White),
-        board.get_color_bb(Color::Black),
-        board.bb_en_passant,
-    );
+    let moves = board.generate_moves_by_color(&Color::White);
 
-    let _white_king_moves = generate_king_moves(
-        parse_bitboards(Color::White, board.get_piece_bb(Color::White, Piece::King)),
-        board.get_color_bb(Color::White),
-    );
+    // for piece_move in moves.iter() {
+    //     if piece_move.1 & board.get_color_bb(Color::Black) != 0 {
+    //         board.make_move(&piece_move.2, &piece_move.3, (piece_move.0, piece_move.1));
+    //     }
+    // }
 
-    let _white_knight_moves = generate_knight_moves(
-        parse_bitboards(
-            Color::White,
-            board.get_piece_bb(Color::White, Piece::Knight),
-        ),
-        board.get_color_bb(Color::White),
-    );
+    // println!("{}", evaluate(&board));
 
-    // let magic_entry = ROOK_MAGICS[4];
-    // let occucancies = set_occupancies(4095, count_ones(magic_entry.mask), magic_entry.mask);
-    //
-    // print_bitboard(get_rook_move(magic_entry, occucancies));
-    for board in BISHOP_ATTACKS.iter() {
-        print_bitboard(*board);
-    }
+    let best_score = negamax(&mut board, 2, moves);
+
+    println!("best score: {}\n", best_score.0);
+    print_bitboard(best_score.1 .0);
+    print_bitboard(best_score.1 .1);
+
+    // if it searches 3+ moves ahead it is starting goin crazy like 1860 score wtf??
 }
