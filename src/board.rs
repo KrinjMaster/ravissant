@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use crate::{
     constants::{BOARD_SQUARES, FIFTH_RANK, FOURTH_RANK},
     move_generation::{
@@ -56,11 +58,11 @@ impl BoardState {
         };
 
         let all_attacks = self
-            .generate_moves_by_color(&self.to_move)
+            .generate_moves_by_color(&opposite_color)
             .iter()
             .fold(0, |acc, cur| acc | cur.1);
 
-        all_attacks & self.get_piece_bb(opposite_color, Piece::King) != 0
+        all_attacks & self.get_piece_bb(self.to_move, Piece::King) != 0
     }
 
     pub fn make_move(&mut self, color: &Color, piece: &Piece, piece_move: (Bitboard, Bitboard)) {
@@ -335,7 +337,7 @@ impl BoardState {
 
         let bishops_moves = generate_bishop_moves(
             parse_bitboards(*color, self.get_piece_bb(*color, Piece::Bishop)),
-            self.bb_colors[*color as usize],
+            self.get_color_bb(*color),
             self.bb_fullboard,
         );
 
