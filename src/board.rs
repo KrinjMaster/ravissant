@@ -2,22 +2,11 @@ use crate::{
     constants::{BOARD_SQUARES, FIFTH_RANK, FOURTH_RANK},
     move_generation::{
         generate_bishop_moves, generate_king_moves, generate_knight_moves, generate_pawn_moves,
-        generate_quen_moves, generate_rook_moves,
+        generate_queen_moves, generate_rook_moves,
     },
     piece_parsing::parse_bitboards,
     utils::print_bitboard,
 };
-
-// board when encoded looks something like this
-// 1 . . . . . . . .
-// 2 . . . . . . . .
-// 3 . . . . . . . .
-// 4 . . . . . . . .
-// 5 . . . . . . . .
-// 6 . . . . . . . .
-// 7 . . . . . . . .
-// 8 . . . . . . . .
-//   h g f e d c b a
 
 pub fn count_ones(bb: Bitboard) -> u8 {
     bb.count_ones() as u8
@@ -67,15 +56,11 @@ impl BoardState {
         };
 
         let all_attacks = self
-            .generate_moves_by_color(&opposite_color)
+            .generate_moves_by_color(&self.to_move)
             .iter()
             .fold(0, |acc, cur| acc | cur.1);
 
-        if all_attacks & self.get_piece_bb(self.to_move, Piece::King) != 0 {
-            return true;
-        } else {
-            return false;
-        }
+        all_attacks & self.get_piece_bb(opposite_color, Piece::King) != 0
     }
 
     pub fn make_move(&mut self, color: &Color, piece: &Piece, piece_move: (Bitboard, Bitboard)) {
@@ -351,7 +336,7 @@ impl BoardState {
         let bishops_moves = generate_bishop_moves(
             parse_bitboards(*color, self.get_piece_bb(*color, Piece::Bishop)),
             self.bb_colors[*color as usize],
-            self.get_color_bb(*color) | self.get_color_bb(*opposite_color),
+            self.bb_fullboard,
         );
 
         for piece_move in bishops_moves.iter() {
@@ -374,7 +359,7 @@ impl BoardState {
         let rooks_moves = generate_rook_moves(
             parse_bitboards(*color, self.get_piece_bb(*color, Piece::Rook)),
             self.bb_colors[*color as usize],
-            self.get_color_bb(*color) | self.get_color_bb(*opposite_color),
+            self.bb_fullboard,
         );
 
         for piece_move in rooks_moves.iter() {
@@ -394,10 +379,10 @@ impl BoardState {
             }
         }
 
-        let queens_moves = generate_quen_moves(
-            parse_bitboards(*color, self.get_piece_bb(*color, Piece::Rook)),
+        let queens_moves = generate_queen_moves(
+            parse_bitboards(*color, self.get_piece_bb(*color, Piece::Queen)),
+            self.bb_fullboard,
             self.bb_colors[*color as usize],
-            self.get_color_bb(*color) | self.get_color_bb(*opposite_color),
         );
 
         for piece_move in queens_moves.iter() {

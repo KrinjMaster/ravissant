@@ -1,5 +1,5 @@
 // i decided not to leave magics generationg
-// dunno if you did want to see it here thou
+// dunno if you did want to see it here tho
 use crate::{
     board::Bitboard,
     constants::{BISHOP_MOVES, ROOK_MOVES},

@@ -141,7 +141,7 @@ pub fn generate_bishop_moves(
     bb_moves_vec
 }
 
-pub fn generate_quen_moves(
+pub fn generate_queen_moves(
     queens: Vec<(u32, u32)>,
     bb_fullboard: Bitboard,
     bb_friendly_pieces: Bitboard,
