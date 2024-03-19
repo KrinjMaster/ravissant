@@ -3,7 +3,6 @@ use crate::constants::{
     BISHOP_MAGICS, BOARD_SQUARES, KING_ATTACKS, KNIGHT_ATTACKS, PAWN_ATTACKS, ROOK_MAGICS,
 };
 use crate::magic::{get_bishop_move, get_rook_move};
-use crate::utils::print_bitboard;
 
 pub fn generate_pawn_moves(
     pawns: Vec<(u32, u32)>,
