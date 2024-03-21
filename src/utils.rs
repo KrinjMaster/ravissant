@@ -1,4 +1,4 @@
-use crate::board::{Bitboard, Piece};
+use crate::board::Bitboard;
 
 pub fn print_bitboard(bb: Bitboard) {
     let formatted_bb: String = format!("{:064b}", bb);
@@ -28,8 +28,4 @@ pub fn print_bitboard(bb: Bitboard) {
     }
     println!("\n   a b c d e f g h\n");
     println!("biboard is: {}", bb);
-}
-
-pub fn encode_move(from_bb: u8, to_bb: u8, capture: Piece) -> u16 {
-    from_bb as u16 | ((to_bb as u16) << 6) | ((capture as u16) << 12)
 }
