@@ -20,7 +20,7 @@ fn initial_moves() {
 #[test]
 fn in_check() {
     let board =
-        BoardState::from_fen("rnbqkbnr/ppppp1pp/8/5p1Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 0 1")
+        BoardState::from_fen("rnbqkbnr/ppppp1pp/8/5p1Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq f6 0 1")
             .expect("Fail during board setup");
     assert!(board.is_in_check(Color::Black))
 }
@@ -39,7 +39,7 @@ fn encoding_test() {
 fn decoding_test() {
     let board = BoardState::from_fen(DEFAULT_FEN_STRING).expect("Fail during board setup");
 
-    let moves = board.decode_move(board.generate_moves_by_color(&Color::White)[18]);
+    let moves = board.decode_move(board.generate_moves_by_color(&Color::White)[18], false);
     // choose a white right knight move
 
     assert_eq!(moves.0, BOARD_SQUARES[62]);
@@ -47,4 +47,17 @@ fn decoding_test() {
     assert!(matches!(moves.2, Piece::Knight));
     assert!(matches!(moves.3, Color::White));
     assert!(matches!(moves.4, Piece::None));
+}
+
+#[test]
+fn test_undo() {
+    let mut board = BoardState::from_fen(DEFAULT_FEN_STRING).expect("Fail during board setup");
+    let prev_board: BoardState = board.clone();
+
+    let white_moves = board.generate_moves_by_color(&Color::White);
+
+    // just random move, doesnt really matter
+    board.make_move(white_moves[0]);
+
+    matches!(board, prev_board);
 }

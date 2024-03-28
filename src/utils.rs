@@ -1,4 +1,4 @@
-use crate::board::Bitboard;
+use crate::board::{Bitboard, Color};
 
 pub fn print_bitboard(bb: Bitboard) {
     let formatted_bb: String = format!("{:064b}", bb);
@@ -27,5 +27,12 @@ pub fn print_bitboard(bb: Bitboard) {
         println!("{}", rank);
     }
     println!("\n   a b c d e f g h\n");
-    println!("biboard is: {}", bb);
+    println!("bitboard is: {}", bb);
+}
+
+pub fn opposite_color(color: Color) -> Color {
+    match color {
+        Color::White => Color::Black,
+        Color::Black => Color::White,
+    }
 }

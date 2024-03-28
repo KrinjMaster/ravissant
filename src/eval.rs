@@ -137,6 +137,7 @@ pub fn evaluate(board: &BoardState) -> i32 {
         Color::White => 1,
         Color::Black => -1,
     };
+
     // if amount of pieces on the board except pawn are less that 4 + 2 kings
     if ((board.bb_fullboard ^ board.get_piece_bb(Color::White, Piece::Pawn))
         ^ board.get_piece_bb(Color::Black, Piece::Pawn))

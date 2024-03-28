@@ -5,6 +5,7 @@ use crate::{
         generate_queen_moves, generate_rook_moves,
     },
     piece_parsing::parse_bitboards,
+    utils::{opposite_color, print_bitboard},
 };
 
 pub type Move = u16;
@@ -44,7 +45,11 @@ impl BoardState {
     pub fn encode_move(&self, from_bb: u8, to_bb: u8, capture: Piece) -> u16 {
         from_bb as u16 | ((to_bb as u16) << 6) | ((capture as u16) << 12)
     }
-    pub fn decode_move(&self, piece_move: Move) -> (Bitboard, Bitboard, Piece, Color, Piece, bool) {
+    pub fn decode_move(
+        &self,
+        piece_move: Move,
+        is_undoing_doing_move: bool,
+    ) -> (Bitboard, Bitboard, Piece, Color, Piece, bool) {
         let start_bb: Bitboard =
             BOARD_SQUARES[((piece_move & !(1 << 7 | 1 << 8 | 1 << 6)) as u8) as usize];
         let end_bb: Bitboard =
@@ -61,11 +66,14 @@ impl BoardState {
         };
         let is_promotion: bool = (piece_move >> 15 & 1) as u8 == 1;
         let mut piece: Piece = Piece::None;
-        let mut color: Color = Color::White;
+        let color: Color = match is_undoing_doing_move {
+            false => self.to_move,
+            true => opposite_color(self.to_move),
+        };
 
-        for color_index in 0..1 {
-            for piece_index in 0..5 {
-                if self.bb_pieces[color_index as usize][piece_index as usize] & start_bb != 0 {
+        if is_undoing_doing_move == true {
+            for piece_index in 0..6 {
+                if self.bb_pieces[color as usize][piece_index as usize] & end_bb != 0 {
                     piece = match piece_index {
                         0 => Piece::Pawn,
                         1 => Piece::Knight,
@@ -75,26 +83,47 @@ impl BoardState {
                         5 => Piece::King,
                         _ => Piece::None,
                     };
-
-                    if color_index == 0 {
-                        color = Color::White;
-                    } else {
-                        color = Color::Black;
-                    }
+                }
+            }
+        } else {
+            for piece_index in 0..6 {
+                if self.bb_pieces[color as usize][piece_index as usize] & start_bb != 0 {
+                    piece = match piece_index {
+                        0 => Piece::Pawn,
+                        1 => Piece::Knight,
+                        2 => Piece::Bishop,
+                        3 => Piece::Rook,
+                        4 => Piece::Queen,
+                        5 => Piece::King,
+                        _ => Piece::None,
+                    };
                 }
             }
         }
+        // print_bitboard(self.bb_colors[Color::White as usize]);
+        // print_bitboard(self.bb_colors[Color::Black as usize]);
+        // print_bitboard(start_bb);
+        // print_bitboard(end_bb);
+        // println!("\n\n\n");
+
+        // piece making move can not be none
+        if matches!(piece, Piece::None) {
+            // print_bitboard(self.bb_fullboard);
+            // print_bitboard(self.get_color_bb(color));
+            // print_bitboard(end_bb);
+            // print_bitboard(self.get_piece_bb(Color::White, Piece::Pawn));
+            panic!("Piece::None when decoding move!");
+        }
+
+        // println!("piece: {:?}", piece);
+        // println!("piece color: {:?}", color);
+        // println!("captured piece: {:?}\n\n", captured_piece);
 
         (start_bb, end_bb, piece, color, captured_piece, is_promotion)
     }
     pub fn is_in_check(self, color: Color) -> bool {
-        let opposite_color = match color {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        };
-
         let all_attacks = self
-            .generate_moves_by_color(&opposite_color)
+            .generate_moves_by_color(&opposite_color(color))
             .iter()
             .fold(0, |acc, cur| {
                 acc | BOARD_SQUARES[((cur >> 6 & !(1 << 8 | 1 << 7)) as u8) as usize]
@@ -104,42 +133,20 @@ impl BoardState {
     }
 
     pub fn make_move(&mut self, encoded_move: Move) {
-        let (start_pos, end_pos, piece, color, _, _) = self.decode_move(encoded_move);
+        let (start_pos, end_pos, piece, color, captured_piece, _) =
+            self.decode_move(encoded_move, false);
 
         // delete piece on the move square if there is one
-        // for index in 0..6 {
-        //     // opposite color
-        //     match color {
-        //         Color::White => {
-        //             if self.bb_pieces[Color::Black as usize][index] & end_pos != 0 {
-        //                 self.bb_pieces[Color::Black as usize][index] &= !end_pos;
-        //                 match index {
-        //                     0 => captured_piece = Piece::Pawn,
-        //                     1 => captured_piece = Piece::Knight,
-        //                     2 => captured_piece = Piece::Bishop,
-        //                     3 => captured_piece = Piece::Rook,
-        //                     4 => captured_piece = Piece::Queen,
-        //                     5 => captured_piece = Piece::King,
-        //                     _ => (),
-        //                 };
-        //             }
-        //         }
-        //         Color::Black => {
-        //             if self.bb_pieces[Color::White as usize][index] & end_pos != 0 {
-        //                 self.bb_pieces[Color::White as usize][index] &= !end_pos;
-        //                 match index {
-        //                     0 => captured_piece = Piece::Pawn,
-        //                     1 => captured_piece = Piece::Knight,
-        //                     2 => captured_piece = Piece::Bishop,
-        //                     3 => captured_piece = Piece::Rook,
-        //                     4 => captured_piece = Piece::Queen,
-        //                     5 => captured_piece = Piece::King,
-        //                     _ => (),
-        //                 };
-        //             }
-        //         }
-        //     }
-        // }
+        if !matches!(captured_piece, Piece::None) {
+            match color {
+                Color::White => {
+                    self.bb_pieces[1][captured_piece as usize] &= !end_pos;
+                }
+                Color::Black => {
+                    self.bb_pieces[0][captured_piece as usize] &= !end_pos;
+                }
+            }
+        }
 
         // delete piece from color bitboards
         match color {
@@ -191,6 +198,8 @@ impl BoardState {
 
         self.move_history.push(encoded_move);
 
+        // println!("{}", format!("{:016b}", encoded_move));
+        // println!("{:?}", piece);
         // if black to move
         if self.halfmove == 1 {
             self.to_move = Color::White;
@@ -203,15 +212,11 @@ impl BoardState {
     }
 
     pub fn undo_move(&mut self) -> Result<(), &str> {
+        println!("undoing move");
         let last_move = self.move_history.pop().expect("No more moves found!");
 
-        let (start_pos, end_pos, piece, color, captured_piece, is_promotion) =
-            self.decode_move(last_move);
-
-        let opposite_color = match color {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        };
+        let (start_pos, end_pos, piece, color, captured_piece, _) =
+            self.decode_move(last_move, true);
 
         // check for castling and castling avaliability
         match piece {
@@ -271,14 +276,14 @@ impl BoardState {
         // if move captured piece
         if !matches!(captured_piece, Piece::None) {
             // if captured piece is not empty
-            self.bb_pieces[opposite_color as usize][captured_piece as usize] |= end_pos;
-            self.bb_colors[opposite_color as usize] |= end_pos;
+            self.bb_pieces[opposite_color(color) as usize][captured_piece as usize] |= end_pos;
+            self.bb_colors[opposite_color(color) as usize] |= end_pos;
             self.bb_fullboard |= end_pos;
         }
 
         // undo move in fullboard
         self.bb_fullboard =
-            self.bb_colors[color as usize] | self.bb_colors[opposite_color as usize];
+            self.bb_colors[color as usize] | self.bb_colors[opposite_color(color) as usize];
 
         // halfmove undo
         if self.halfmove == 0 {
@@ -289,7 +294,7 @@ impl BoardState {
             self.halfmove = 0;
         }
 
-        self.to_move = opposite_color;
+        self.to_move = opposite_color(self.to_move);
 
         Ok(())
     }
@@ -550,7 +555,6 @@ impl BoardState {
                 'q' => bb_castling_black_queenside = BOARD_SQUARES[7],
                 _ => {
                     if char != '-' {
-                        println!("{}", castling_rigths_fen);
                         return Err("Incorrect castlings rights in fen string!");
                     }
                 }
