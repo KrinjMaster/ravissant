@@ -5,11 +5,13 @@ use crate::{
         generate_queen_moves, generate_rook_moves,
     },
     piece_parsing::parse_bitboards,
-    utils::{opposite_color, print_bitboard},
+    utils::{number_to_color, number_to_piece, opposite_color},
 };
+use std::process::exit;
 
-pub type Move = u16;
+pub type EncodedMove = u32;
 pub type Bitboard = u64;
+pub type DecodedMove = (Bitboard, Bitboard, Piece, Color, Piece, bool);
 
 #[derive(Debug, Copy, Clone)]
 pub enum Color {
@@ -38,112 +40,91 @@ pub struct BoardState {
     pub bb_en_passant: Bitboard,
     pub halfmove: u32,
     pub fullmove: u32,
-    pub move_history: Vec<Move>,
+    pub move_history: Vec<EncodedMove>,
 }
 
 impl BoardState {
-    pub fn encode_move(&self, from_bb: u8, to_bb: u8, capture: Piece) -> u16 {
-        from_bb as u16 | ((to_bb as u16) << 6) | ((capture as u16) << 12)
+    pub fn get_captured_piece(&self, to_bb: Bitboard) -> Piece {
+        for index in 0..6 {
+            if self.bb_pieces[opposite_color(self.to_move) as usize][index] & to_bb != 0 {
+                return number_to_piece(index as u32).unwrap_or_else(|err| {
+                    println!("{}", err);
+                    exit(1);
+                });
+            }
+        }
+
+        Piece::None
     }
-    pub fn decode_move(
+
+    pub fn encode_move(
         &self,
-        piece_move: Move,
-        is_undoing_doing_move: bool,
-    ) -> (Bitboard, Bitboard, Piece, Color, Piece, bool) {
-        let start_bb: Bitboard =
-            BOARD_SQUARES[((piece_move & !(1 << 7 | 1 << 8 | 1 << 6)) as u8) as usize];
-        let end_bb: Bitboard =
-            BOARD_SQUARES[((piece_move >> 6 & !(1 << 7 | 1 << 8)) as u8) as usize];
-        let captured_piece_index: u8 = ((piece_move) >> 12 & (1 | 1 << 1 | 1 << 2)) as u8;
-        let captured_piece = match captured_piece_index {
-            0 => Piece::Pawn,
-            1 => Piece::Knight,
-            2 => Piece::Bishop,
-            3 => Piece::Rook,
-            4 => Piece::Queen,
-            5 => Piece::King,
-            _ => Piece::None,
-        };
-        let is_promotion: bool = (piece_move >> 15 & 1) as u8 == 1;
-        let mut piece: Piece = Piece::None;
-        let color: Color = match is_undoing_doing_move {
-            false => self.to_move,
-            true => opposite_color(self.to_move),
-        };
-
-        if is_undoing_doing_move == true {
-            for piece_index in 0..6 {
-                if self.bb_pieces[color as usize][piece_index as usize] & end_bb != 0 {
-                    piece = match piece_index {
-                        0 => Piece::Pawn,
-                        1 => Piece::Knight,
-                        2 => Piece::Bishop,
-                        3 => Piece::Rook,
-                        4 => Piece::Queen,
-                        5 => Piece::King,
-                        _ => Piece::None,
-                    };
-                }
-            }
-        } else {
-            for piece_index in 0..6 {
-                if self.bb_pieces[color as usize][piece_index as usize] & start_bb != 0 {
-                    piece = match piece_index {
-                        0 => Piece::Pawn,
-                        1 => Piece::Knight,
-                        2 => Piece::Bishop,
-                        3 => Piece::Rook,
-                        4 => Piece::Queen,
-                        5 => Piece::King,
-                        _ => Piece::None,
-                    };
-                }
-            }
-        }
-        // print_bitboard(self.bb_colors[Color::White as usize]);
-        // print_bitboard(self.bb_colors[Color::Black as usize]);
-        // print_bitboard(start_bb);
-        // print_bitboard(end_bb);
-        // println!("\n\n\n");
-
-        // piece making move can not be none
-        if matches!(piece, Piece::None) {
-            // print_bitboard(self.bb_fullboard);
-            // print_bitboard(self.get_color_bb(color));
-            // print_bitboard(end_bb);
-            // print_bitboard(self.get_piece_bb(Color::White, Piece::Pawn));
-            panic!("Piece::None when decoding move!");
+        from_pos: u8,
+        to_pos: u8,
+        piece: Piece,
+        color: Color,
+        captured_piece: Piece,
+        is_promotion: bool,
+    ) -> Result<EncodedMove, &str> {
+        if from_pos & !63 != 0 || to_pos & !63 != 0 {
+            return Err("Incorrect move positions!");
         }
 
-        // println!("piece: {:?}", piece);
-        // println!("piece color: {:?}", color);
-        // println!("captured piece: {:?}\n\n", captured_piece);
-
-        (start_bb, end_bb, piece, color, captured_piece, is_promotion)
+        // those ands are just another layer of error hanlding
+        Ok((from_pos as u32) & 63
+            | ((to_pos as u32) & 63) << 6
+            | ((piece as u32) & 7) << 12
+            | (color as u32) << 15
+            | (captured_piece as u32) << 18
+            | (is_promotion as u32) << 19)
     }
-    pub fn is_in_check(self, color: Color) -> bool {
+
+    pub fn decode_move(&self, piece_move: EncodedMove) -> Result<DecodedMove, &str> {
+        let start_bb: Bitboard = BOARD_SQUARES[(piece_move & 63) as usize];
+        let end_bb: Bitboard = BOARD_SQUARES[((piece_move >> 6) & 63) as usize];
+        let piece: Piece = number_to_piece((piece_move >> 12) & 7).unwrap_or_else(|err| {
+            println!("{}", err);
+            exit(1);
+        });
+        let color: Color = number_to_color((piece_move >> 15) & 1).unwrap_or_else(|err| {
+            println!("{}", err);
+            exit(1);
+        });
+        let captured_piece: Piece = number_to_piece((piece_move >> 16) & 7).unwrap_or_else(|err| {
+            println!("{}", err);
+            exit(1);
+        });
+        let is_promotion = (piece_move >> 19) & 1 == 1;
+
+        Ok((start_bb, end_bb, piece, color, captured_piece, is_promotion))
+    }
+
+    pub fn is_in_check(&self, color: &Color) -> bool {
         let all_attacks = self
-            .generate_moves_by_color(&opposite_color(color))
+            .generate_moves_by_color(&opposite_color(*color))
             .iter()
-            .fold(0, |acc, cur| {
-                acc | BOARD_SQUARES[((cur >> 6 & !(1 << 8 | 1 << 7)) as u8) as usize]
+            .fold(0, |all_moves, cur_move| {
+                all_moves | BOARD_SQUARES[((cur_move >> 6) & 63) as usize]
             });
 
-        all_attacks & self.get_piece_bb(color, Piece::King) != 0
+        all_attacks & self.get_piece_bb(*color, Piece::King) != 0
     }
 
-    pub fn make_move(&mut self, encoded_move: Move) {
-        let (start_pos, end_pos, piece, color, captured_piece, _) =
-            self.decode_move(encoded_move, false);
+    pub fn make_move(&mut self, piece_move: EncodedMove) {
+        let (start_bb, end_bb, piece, color, captured_piece, _) =
+            self.decode_move(piece_move).unwrap_or_else(|err| {
+                println!("{}", err);
+                exit(1);
+            });
 
         // delete piece on the move square if there is one
         if !matches!(captured_piece, Piece::None) {
             match color {
                 Color::White => {
-                    self.bb_pieces[1][captured_piece as usize] &= !end_pos;
+                    self.bb_pieces[1][captured_piece as usize] &= !end_bb;
                 }
                 Color::Black => {
-                    self.bb_pieces[0][captured_piece as usize] &= !end_pos;
+                    self.bb_pieces[0][captured_piece as usize] &= !end_bb;
                 }
             }
         }
@@ -151,18 +132,18 @@ impl BoardState {
         // delete piece from color bitboards
         match color {
             Color::White => {
-                self.bb_colors[Color::White as usize] &= !start_pos;
-                self.bb_colors[Color::White as usize] |= end_pos;
+                self.bb_colors[Color::White as usize] &= !start_bb;
+                self.bb_colors[Color::White as usize] |= end_bb;
 
-                self.bb_colors[Color::Black as usize] &= !start_pos;
-                self.bb_colors[Color::Black as usize] &= !end_pos;
+                self.bb_colors[Color::Black as usize] &= !start_bb;
+                self.bb_colors[Color::Black as usize] &= !end_bb;
             }
             Color::Black => {
-                self.bb_colors[Color::Black as usize] &= !start_pos;
-                self.bb_colors[Color::Black as usize] |= end_pos;
+                self.bb_colors[Color::Black as usize] &= !start_bb;
+                self.bb_colors[Color::Black as usize] |= end_bb;
 
-                self.bb_colors[Color::White as usize] &= !start_pos;
-                self.bb_colors[Color::White as usize] &= !end_pos;
+                self.bb_colors[Color::White as usize] &= !start_bb;
+                self.bb_colors[Color::White as usize] &= !end_bb;
             }
         }
 
@@ -177,26 +158,27 @@ impl BoardState {
                 self.bb_castling_rigths[color as usize][0] = 0;
             }
             Piece::Rook => {
-                self.bb_castling_rigths[color as usize][1] &= !start_pos;
-                self.bb_castling_rigths[color as usize][0] &= !start_pos;
+                self.bb_castling_rigths[color as usize][1] &= !start_bb;
+                self.bb_castling_rigths[color as usize][0] &= !start_bb;
             }
             Piece::Pawn => {
-                if start_pos >> 16 == end_pos && matches!(color, Color::White) {
-                    self.bb_en_passant |= start_pos >> 8;
+                if start_bb >> 16 == end_bb && matches!(color, Color::White) {
+                    self.bb_en_passant |= start_bb >> 8;
                 }
-                if start_pos << 16 == end_pos && matches!(color, Color::Black) {
-                    self.bb_en_passant |= start_pos << 8;
+                if start_bb << 16 == end_bb && matches!(color, Color::Black) {
+                    self.bb_en_passant |= start_bb << 8;
                 }
             }
             _ => (),
         }
 
         // make a move
-        self.bb_pieces[color as usize][piece as usize] |= end_pos;
-        self.bb_colors[color as usize] |= end_pos;
-        self.bb_fullboard |= end_pos;
+        self.bb_pieces[color as usize][piece as usize] |= end_bb;
+        self.bb_pieces[color as usize][piece as usize] ^= start_bb;
+        self.bb_colors[color as usize] |= end_bb;
+        self.bb_fullboard |= end_bb;
 
-        self.move_history.push(encoded_move);
+        self.move_history.push(piece_move);
 
         // println!("{}", format!("{:016b}", encoded_move));
         // println!("{:?}", piece);
@@ -212,11 +194,13 @@ impl BoardState {
     }
 
     pub fn undo_move(&mut self) -> Result<(), &str> {
-        println!("undoing move");
         let last_move = self.move_history.pop().expect("No more moves found!");
 
-        let (start_pos, end_pos, piece, color, captured_piece, _) =
-            self.decode_move(last_move, true);
+        let (start_bb, end_bb, piece, color, captured_piece, is_promotion) =
+            self.decode_move(last_move).unwrap_or_else(|err| {
+                println!("{}", err);
+                exit(1);
+            });
 
         // check for castling and castling avaliability
         match piece {
@@ -224,24 +208,23 @@ impl BoardState {
                 match color {
                     Color::White => {
                         // if piece was previosly of fourth rank
-                        if start_pos & FOURTH_RANK != 0 {
-                            self.bb_en_passant |= start_pos << 8;
+                        if start_bb & FOURTH_RANK != 0 {
+                            self.bb_en_passant |= start_bb << 8;
                         }
                     }
                     Color::Black => {
                         // if piece was previosly of fifth rank
-                        if start_pos & FIFTH_RANK != 0 {
-                            self.bb_en_passant |= start_pos >> 8;
+                        if start_bb & FIFTH_RANK != 0 {
+                            self.bb_en_passant |= start_bb >> 8;
                         }
                     }
                 }
             }
             Piece::Rook => {
                 for index in 0..2 {
-                    if (self.bb_castling_rigths[color as usize][index] | start_pos).count_ones()
-                        == 1
+                    if (self.bb_castling_rigths[color as usize][index] | start_bb).count_ones() == 1
                     {
-                        self.bb_castling_rigths[color as usize][index] = start_pos;
+                        self.bb_castling_rigths[color as usize][index] = start_bb;
                     }
                 }
             }
@@ -266,19 +249,19 @@ impl BoardState {
         }
 
         // undo move
-        self.bb_pieces[color as usize][piece as usize] |= start_pos;
-        self.bb_pieces[color as usize][piece as usize] ^= end_pos;
+        self.bb_pieces[color as usize][piece as usize] |= start_bb;
+        self.bb_pieces[color as usize][piece as usize] ^= end_bb;
 
         // undo move in colors bb
-        self.bb_colors[color as usize] |= start_pos;
-        self.bb_colors[color as usize] ^= end_pos;
+        self.bb_colors[color as usize] |= start_bb;
+        self.bb_colors[color as usize] ^= end_bb;
 
         // if move captured piece
         if !matches!(captured_piece, Piece::None) {
             // if captured piece is not empty
-            self.bb_pieces[opposite_color(color) as usize][captured_piece as usize] |= end_pos;
-            self.bb_colors[opposite_color(color) as usize] |= end_pos;
-            self.bb_fullboard |= end_pos;
+            self.bb_pieces[opposite_color(color) as usize][captured_piece as usize] |= end_bb;
+            self.bb_colors[opposite_color(color) as usize] |= end_bb;
+            self.bb_fullboard |= end_bb;
         }
 
         // undo move in fullboard
@@ -299,13 +282,13 @@ impl BoardState {
         Ok(())
     }
 
-    pub fn generate_moves_by_color(&self, color: &Color) -> Vec<Move> {
+    pub fn generate_moves_by_color(&self, color: &Color) -> Vec<EncodedMove> {
         let opposite_color: &Color = match *color {
             Color::White => &Color::Black,
             Color::Black => &Color::White,
         };
 
-        let mut moves_vec: Vec<Move> = vec![];
+        let mut moves_vec: Vec<EncodedMove> = vec![];
 
         // generate pseudo legal moves
         let pawns_moves = generate_pawn_moves(
@@ -321,11 +304,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    piece_move.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
+                moves_vec.push(
+                    self.encode_move(
+                        piece_move.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::Pawn,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
 
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }
@@ -342,11 +335,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    king.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
+                moves_vec.push(
+                    self.encode_move(
+                        king.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::King,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
 
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }
@@ -363,11 +366,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    piece_move.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
+                moves_vec.push(
+                    self.encode_move(
+                        piece_move.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::Knight,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
 
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }
@@ -385,12 +398,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    piece_move.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
-
+                moves_vec.push(
+                    self.encode_move(
+                        piece_move.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::Bishop,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }
         }
@@ -407,11 +429,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    piece_move.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
+                moves_vec.push(
+                    self.encode_move(
+                        piece_move.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::Rook,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
 
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }
@@ -429,11 +461,21 @@ impl BoardState {
             while move_bb != 0 {
                 let least_sign_bit = move_bb.trailing_zeros();
 
-                moves_vec.push(self.encode_move(
-                    piece_move.0.trailing_zeros() as u8,
-                    least_sign_bit as u8,
-                    Piece::None,
-                ));
+                moves_vec.push(
+                    self.encode_move(
+                        piece_move.0.trailing_zeros() as u8,
+                        least_sign_bit as u8,
+                        Piece::Queen,
+                        *color,
+                        self.get_captured_piece(BOARD_SQUARES[least_sign_bit as usize]),
+                        false,
+                        // later implement promotion
+                    )
+                    .unwrap_or_else(|err| {
+                        println!("{}", err);
+                        exit(1);
+                    }),
+                );
 
                 move_bb ^= BOARD_SQUARES[least_sign_bit as usize];
             }

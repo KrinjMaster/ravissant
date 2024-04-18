@@ -5,7 +5,7 @@ use crate::constants::{
 use crate::magic::{get_bishop_move, get_rook_move};
 
 pub fn generate_pawn_moves(
-    pawns: Vec<(u32, u32)>,
+    pawns: Vec<(u8, u8)>,
     bb_friendly_pieces: Bitboard,
     bb_enemy_pieces: Bitboard,
     bb_en_passant: Bitboard,
@@ -72,7 +72,7 @@ pub fn generate_pawn_moves(
 }
 
 pub fn generate_king_moves(
-    kings: Vec<(u32, u32)>,
+    kings: Vec<(u8, u8)>,
     bb_friendly_pieces: Bitboard,
 ) -> Vec<(Bitboard, Bitboard)> {
     let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
@@ -90,7 +90,7 @@ pub fn generate_king_moves(
 }
 
 pub fn generate_knight_moves(
-    knights: Vec<(u32, u32)>,
+    knights: Vec<(u8, u8)>,
     bb_friendly_pieces: Bitboard,
 ) -> Vec<(Bitboard, Bitboard)> {
     let mut bb_moves_vec: Vec<(Bitboard, Bitboard)> = vec![];
@@ -108,7 +108,7 @@ pub fn generate_knight_moves(
 }
 
 pub fn generate_rook_moves(
-    rooks: Vec<(u32, u32)>,
+    rooks: Vec<(u8, u8)>,
     bb_friendly_pieces: Bitboard,
     bb_fullboard: Bitboard,
 ) -> Vec<(Bitboard, Bitboard)> {
@@ -125,7 +125,7 @@ pub fn generate_rook_moves(
 }
 
 pub fn generate_bishop_moves(
-    bishops: Vec<(u32, u32)>,
+    bishops: Vec<(u8, u8)>,
     bb_friendly_pieces: Bitboard,
     bb_fullboard: Bitboard,
 ) -> Vec<(Bitboard, Bitboard)> {
@@ -142,7 +142,7 @@ pub fn generate_bishop_moves(
 }
 
 pub fn generate_queen_moves(
-    queens: Vec<(u32, u32)>,
+    queens: Vec<(u8, u8)>,
     bb_fullboard: Bitboard,
     bb_friendly_pieces: Bitboard,
 ) -> Vec<(Bitboard, Bitboard)> {

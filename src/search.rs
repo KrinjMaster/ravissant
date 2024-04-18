@@ -1,46 +1,49 @@
 use crate::{
-    board::{BoardState, Color, Move},
-    eval::evaluate,
+    board::BoardState,
+    eval::{evaluate, CHECKMATE, DRAW},
 };
+use std::process::exit;
 
-pub fn negamax(board: &mut BoardState, depth: u8, moves: Vec<Move>) -> (i32, Move) {
-    let mut max: i32 = -100_000;
-    let mut best_move: Move = 0;
+pub fn negamax(board: &mut BoardState, depth: u8) -> i32 {
+    let mut max: i32 = -100_000_000;
 
     if depth == 0 {
         let score = evaluate(board);
 
-        return (score, best_move);
+        return score;
+    }
+
+    let moves = board.generate_moves_by_color(&board.to_move);
+
+    if moves.is_empty() {
+        if board.is_in_check(&board.to_move) {
+            return CHECKMATE;
+        }
+
+        return DRAW;
     }
 
     for piece_move in moves.iter() {
-        let (_, _, _, color, _, _) = board.decode_move(*piece_move, false);
+        let (_, _, _, color, _, _) = board.decode_move(*piece_move).unwrap_or_else(|err| {
+            println!("{}", err);
+            exit(1);
+        });
+
         board.make_move(*piece_move);
 
-        let opposite_color: Color = match color {
-            Color::White => Color::Black,
-            Color::Black => Color::White,
-        };
-
-        if board.clone().is_in_check(opposite_color) {
+        if board.is_in_check(&color) {
             let _ = board.undo_move();
             continue;
         }
 
-        let score = -(negamax(
-            board,
-            depth - 1,
-            board.generate_moves_by_color(&board.to_move),
-        )
-        .0);
+        let score = negamax(board, depth - 1);
 
-        if score > max {
-            best_move = *piece_move;
-            max = score;
+        if -score > max {
+            max = -score;
         }
 
         let _ = board.undo_move();
     }
 
-    (max, best_move)
+    max
 }

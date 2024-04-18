@@ -7,9 +7,8 @@ use crate::{
     piece_parsing::parse_bitboards,
 };
 
-pub const WHITE_CHECKMATE: i32 = 10_000;
 pub const DRAW: i32 = 0;
-pub const BLACK_CHECKMATE: i32 = -10_000;
+pub const CHECKMATE: i32 = 10_000;
 
 pub const PAWN: i32 = 100;
 pub const KNIGHT: i32 = 310;
